@@ -7,9 +7,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.distributed as dist
+import wandb
 
 from .attention import MultiHeadAttention
-from .utils import shift_dim
+from .utils import shift_dim, to_wandb_video
 
 class VQVAE(pl.LightningModule):
     def __init__(self, args):
@@ -26,6 +27,7 @@ class VQVAE(pl.LightningModule):
 
         self.codebook = Codebook(args.n_codes, args.embedding_dim)
         self.save_hyperparameters()
+        self.show_video = True
 
     @property
     def latent_shape(self):
@@ -60,14 +62,22 @@ class VQVAE(pl.LightningModule):
         recon_loss, _, vq_output = self.forward(x)
         commitment_loss = vq_output['commitment_loss']
         loss = recon_loss + commitment_loss
+        self.log('train/recon_loss', recon_loss)
+        self.log('train/perplexity', vq_output['perplexity'])
+        self.log('train/commitment_loss', vq_output['commitment_loss'])
+        self.show_video = True
         return loss
 
     def validation_step(self, batch, batch_idx):
         x = batch['video']
-        recon_loss, _, vq_output = self.forward(x)
-        self.log('val/recon_loss', recon_loss, prog_bar=True)
-        self.log('val/perplexity', vq_output['perplexity'], prog_bar=True)
-        self.log('val/commitment_loss', vq_output['commitment_loss'], prog_bar=True)
+        recon_loss, recon, vq_output = self.forward(x)
+        self.log('val/recon_loss', recon_loss)
+        self.log('val/perplexity', vq_output['perplexity'])
+        self.log('val/commitment_loss', vq_output['commitment_loss'])
+        if self.show_video:
+            video = to_wandb_video(recon.clone().detach().cpu(), x.clone().detach().cpu())
+            wandb.log({"val/video": video})
+            self.show_video = False
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=3e-4, betas=(0.9, 0.999))

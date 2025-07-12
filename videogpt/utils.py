@@ -84,4 +84,22 @@ def save_video_grid(video, fname, nrow=None):
     skvideo.io.vwrite(fname, video_grid, inputdict={'-r': '5'})
     print('saved videos to', fname)
 
+import torch
+import torchvision
+import wandb
 
+def make_grid(video: torch.Tensor, max_batch_size: int = 4):
+    b, t, c, h, w = video.shape
+    video = video[:max_batch_size]
+    video = torch.stack([torchvision.utils.make_grid(video[:, i], nrow=b) for i in range(t)])
+    return video
+
+def to_wandb_video(recon: torch.Tensor, gt: torch.Tensor):
+    b, c, t, h, w = recon.shape
+    recon = recon.permute(0, 2, 1, 3, 4) # BCTHW -> BTCHW
+    gt = gt.permute(0, 2, 1, 3, 4) # BCTHW -> BTCHW
+    video = torch.cat([recon, gt], dim=-2)
+    video = make_grid(video).numpy()
+    video = video + 0.5
+    video = (255 * (np.clip(video, 0, 1))).astype('uint8')
+    return wandb.Video(video, fps=10, format="gif")
