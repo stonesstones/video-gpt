@@ -29,7 +29,7 @@ def main():
     parser.add_argument('--gradient_clip_val', type=float, default=1.0)
     parser.add_argument('--precision', type=int, default=16)
     parser.add_argument('--log_every_n_steps', type=int, default=100)
-    # parser.add_argument('--limit_val_batches', type=int, default=1)
+    parser.add_argument('--limit_val_batches', type=int, default=0.2)
     parser.add_argument('--val_check_interval', type=float, default=1)
 
     args = parser.parse_args()
@@ -43,7 +43,10 @@ def main():
     model = VQVAE(args)
 
     # コールバックの設定
-    callbacks = [ModelCheckpoint(monitor='val/recon_loss', mode='min')]
+    callbacks = [
+        ModelCheckpoint(monitor='val/recon_loss', mode='min', dirpath=f'./logs/{args.name}'), 
+        ModelCheckpoint(every_n_epochs=2, dirpath=f'./logs/{args.name}', filename='{epoch}')
+        ]
 
     wandb_logger = WandbLogger(project="video-gpt", name=args.name)
     # Trainer 構築
@@ -57,7 +60,7 @@ def main():
         callbacks=callbacks,
         logger=wandb_logger,
         log_every_n_steps=args.log_every_n_steps,
-        # limit_val_batches=args.limit_val_batches,
+        limit_val_batches=args.limit_val_batches,
         val_check_interval=args.val_check_interval,
     )
     trainer.fit(model, data)
