@@ -1,7 +1,7 @@
 #!/bin/sh
 #PBS -q rt_HG
 #PBS -l select=1
-#PBS -l walltime=3:00:00
+#PBS -l walltime=0:15:00
 #PBS -P gcg51472
 #PBS -W umask=027
 #PBS -N out.train_video_gpt
@@ -15,21 +15,22 @@ source /etc/profile.d/modules.sh
 module load cuda/12.1/12.1.1
 
 # 基本設定
-RUN_NAME="default"
+RUN_NAME="vqvae_128_p8"
 DATA_PATH="/groups/gcg51472/nuscenes"
 SEQUENCE_LENGTH=16
 RESOLUTION=128
 BATCH_SIZE=128
 GPUS=1
-MAX_STEPS=200000
+MAX_STEPS=5000
 LOG_EVERY_N_STEPS=10
 VAL_CHECK_INTERVAL=1.0
+DOWN_SAMPLE=(4 8 8)
 
 
 # VQVAE設定
 EMBEDDING_DIM=256
 N_CODES=4096
-N_HIDDENS=240
+N_HIDDENS=256
 N_RES_LAYERS=4
 
 # 出力ディレクトリ
@@ -43,6 +44,7 @@ echo "Sequence: $SEQUENCE_LENGTH frames"
 echo "Batch size: $BATCH_SIZE"
 echo "GPUs: $GPUS"
 echo "Max steps: $MAX_STEPS"
+echo "Down sample: ${DOWN_SAMPLE[*]}"
 echo "======================"
 
 # 学習実行
@@ -58,7 +60,7 @@ uv run python scripts/train_vqvae.py \
     --n_codes "$N_CODES" \
     --n_hiddens "$N_HIDDENS" \
     --n_res_layers "$N_RES_LAYERS" \
-    --downsample 4 4 4 \
+    --downsample 4 8 8 \
     --gradient_clip_val 1 \
     --name "$RUN_NAME" \
     --val_check_interval "$VAL_CHECK_INTERVAL" \
